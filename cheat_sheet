@@ -1,0 +1,70 @@
+1. uvm_config_db
+  
+  uvm_config_db #(T)::set(uvm_component cntxt, string instance_path, string field_name, T value);
+  when multiple set are done in the build phase, the 1st one takes effect while other set are ignored
+  when multiple set are done outside the build phase, the last one takes effect
+
+  uvm_config_db #(T)::get(uvm_component cntxt, string instance_path, string field_name, T value);
+
+2. Override
+  set_type_override_by_type ( uvm_object_wrapper original_type,
+                            uvm_object_wrapper override_type,
+                            bit replace=1);
+
+  set_type_override_by_name ( string original_type_name,
+                            string override_type_name,
+                            bit replace=1);
+
+  // Override a type within a particular instance
+  set_inst_override_by_type (uvm_object_wrapper original_type,
+                           uvm_object_wrapper override_type,
+                           string full_inst_path);
+
+  set_inst_override_by_name (string original_type_name,
+                           string override_type_name,
+                           string full_inst_path);
+  
+  factory.set_type_override_by_type(original::get_type(), override::get_type());
+  original_class::type_id::set_type_override(override_class::get_type());
+
+3. factory
+
+  class uvm_component_registry #(type T = uvm_component, string name) extends uvm_object_wrapper;
+    local static uvm_component_registry #(T, name) this_t = get;
+
+    static function this_t get();
+      if (this_t == null) begin
+        this_t = new;
+        factory.register(this_t);
+      end
+      return this_t;
+    endfunction
+  endclass : uvm_component_registry
+    
+  class component extends uvm_component;
+    typedef uvm_component_registry #(component, "component")  type_id;
+
+    static function type_id get_type();
+      return type_id::get();
+    endfunction
+
+    function string get_type_Name();
+      return "component";
+    endfunction
+  endclass
+4. TLM connection
+  driver.seq_item_port.connect(sequencer.seq_item_export);
+  driver.rsp_port.connect(sequencer.rsp_export);
+
+5. driver run_phase
+
+6. uvm_analysis_imp_port
+
+7. sequence -> sequencer -> driver mechanism
+  class driver extends uvm_driver #(req, rsp) OR class driver extends uvm_driver#(req) in this case same sequence item is used for request and response
+
+8. virtual sequence
+
+9. virtual sequencer
+
+10. ral block

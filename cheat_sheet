@@ -62,9 +62,13 @@
 
 7. sequence -> sequencer -> driver mechanism
   class driver extends uvm_driver #(req, rsp) OR class driver extends uvm_driver#(req) in this case same sequence item is used for request and response
+  The driver should set set_id_info to the response item when returning a response so that sequencer knows which sequence the response is for
+  grab and lock methods. They take control over the sequence - sequencer - driver channel
 
 8. virtual sequence
+  It is a base sequence that contains other sub-sequences which can be start on multiple sequencers.
+  The execution of the sequences can be hierarchical, parallel or in random order or user defined way
 
 9. virtual sequencer
-
+  it is a normal sequencer that contains handle to all the target sequencers.
 10. ral block

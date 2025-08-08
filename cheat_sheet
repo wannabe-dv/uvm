@@ -53,12 +53,32 @@
     endfunction
   endclass
 4. TLM connection
+  analysis port  - uvm_analysis_port #()
+    analysis_port require an implementation of write to be connected to it
+    port.get_provided_to(list[$])
+    when it calls port.write() it goes through the list and calls write method on all the connected exports
+    analysis_port are generally used to move up the testbench hierarchy (monitor to agent)
+  analysis export- uvm_analysis_export #()
+    analysis_eport are connected to analysis_export or analysis_imp. 
+    mon.port.connect(comp.port);
+  analysis imp   - uvm_analysis_imp #()
+    analysis_imp is the one that calls the final write method
+    `uvm_analysis_imp_decl(inport)
+    uvm_analysis_imp_inport inport#()
+    function void write_inport()
+    mon.port.connect(scbd.port);
+
+  analysis fifo  - uvm_tlm_analysis_fifo #()
+    mon.port.connect(scbd.port.analysis_export)
+
+  if synchronization is required than generally use uvm_tlm_analysis_fifo #()
+  if streams or channels are not dependent on each other than use uvm_analysis_imp #()
+
+  uvm_subscriber has a built-in write method. The coverage_monitor can extend from the uvm_subscriber #() and implement the write function
   driver.seq_item_port.connect(sequencer.seq_item_export);
   driver.rsp_port.connect(sequencer.rsp_export);
 
-5. driver run_phase
-
-6. uvm_analysis_imp_port
+  functionv void write (transcation)
 
 7. sequence -> sequencer -> driver mechanism
   - class driver extends uvm_driver #(req, rsp) OR class driver extends uvm_driver#(req) in this case same sequence item is used for request and response
@@ -134,3 +154,18 @@
   it is a normal sequencer that it not connected to any driver and contains handle to all the target sequencers.
   generally, virtual sequences are extended from a base class which does all the handle assignment to the virtual sequencer.
 10. ral block
+
+  build_phase();
+  ral = ral_block::type_id::create("", this);
+  ral.build();
+  ral.lock_model();
+
+  adapter = m_reg2axi_adapter::type_id::create("",this);
+  predictor = uvm_reg_predictor #(transaction)::type_id::create("",this);
+  predictor.adapter = m_reg2axi_adapter
+  predictor.default_map = ral.default_map;
+
+  connect_phase();
+    ral.default_map.set_sequencer(<sequencer>, <adapter>);
+    ral.default_map.set_auto_predict(1);
+    agent.mon.port.connect(predictor.bus_in);

@@ -11,6 +11,8 @@
                             uvm_object_wrapper override_type,
                             bit replace=1);
 
+  set_type_override_by_type (og::get_type(), override::get_type());
+
   set_type_override_by_name ( string original_type_name,
                             string override_type_name,
                             bit replace=1);
@@ -52,6 +54,7 @@
       return "component";
     endfunction
   endclass
+
 4. TLM connection
   analysis port  - uvm_analysis_port #()
     analysis_port require an implementation of write to be connected to it
@@ -87,7 +90,7 @@
     - grab and lock methods. They take control over the sequence - sequencer - driver channel
     - sequence.start(sequencer)
     - create sequence
-    - 0start_item(item) -> this call blocks until the sequencer grants the channel to the sequence
+    - start_item(item) -> this call blocks until the sequencer grants the channel to the sequence
     - finish_item(item) -> this call blocks until the driver is done with its execution. no simulation time must be consumed between start_item and finish_item
     - get_response() -> if the sequence is expecting a response it needs to wait for the response
   Driver:

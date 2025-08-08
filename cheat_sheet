@@ -61,14 +61,76 @@
 6. uvm_analysis_imp_port
 
 7. sequence -> sequencer -> driver mechanism
-  class driver extends uvm_driver #(req, rsp) OR class driver extends uvm_driver#(req) in this case same sequence item is used for request and response
-  The driver should set set_id_info to the response item when returning a response so that sequencer knows which sequence the response is for
-  grab and lock methods. They take control over the sequence - sequencer - driver channel
+  - class driver extends uvm_driver #(req, rsp) OR class driver extends uvm_driver#(req) in this case same sequence item is used for request and response
+  Sequence:
+    - The driver should set set_id_info to the response item when returning a response so that sequencer knows which sequence the response is for
+    - grab and lock methods. They take control over the sequence - sequencer - driver channel
+    - sequence.start(sequencer)
+    - create sequence
+    - 0start_item(item) -> this call blocks until the sequencer grants the channel to the sequence
+    - finish_item(item) -> this call blocks until the driver is done with its execution. no simulation time must be consumed between start_item and finish_item
+    - get_response() -> if the sequence is expecting a response it needs to wait for the response
+  Driver:
+    - get_next_item(item) -> blocks until a sequence item is available in the sequencer FIFO
+    - try_next_item(item) -> non-blocking call to check if a sequence item is available in the sequencer FIFO
+    - item_done(rsp_item) -> non-blocking item_done indicating the handshake is done. if it is passed without any arguments it means there is no rsp sent.
+    - peek()              -> similar to get_next_item
+    - get()               -> similar to get_next_item
+    - put()               -> puts a response in the sequencer FIFO to send it back to the sequence
+
+    get_next_item and item_done handshaking
+    - #0 blocking call driver.get_next_item(item), wait for seq.start_item(item)
+    - #5 seq.start_item(item)
+    - #5 driver.get_next_item(item) unblocks
+    - #5 blocking call seq.finish_item(item), waits for driver.item_done()
+    - #10 driver.item_done() is called unblocking seq.finish_item(item)
+    - #10 process next sequence item if any
+
+    get and put handshaking
+    - #0 blocking call driver.get(item), wait for seq.start_item(item)
+    - #5 seq.start_item(item)
+    - #5 driver.get(item) unblocks
+    - #5 seq.finish_item(item) unblocks
+    - #10 seq.get_response() is blocked, waiting for a driver.put(rsp)
+    - #15 driver.put(rsp), unblocks sequence, rsp.set_id_info(req_item)
+    - #15 process next sequence if any
 
 8. virtual sequence
   It is a base sequence that contains other sub-sequences which can be start on multiple sequencers.
   The execution of the sequences can be hierarchical, parallel or in random order or user defined way
 
+  // Virtual sequence
+  class top_vseq_base extends uvm_sequence #(uvm_sequence_item);
+    `uvm_object_utils(top_vseq_base)
+    uvm_sequencer #(a_seq_item) A1;
+    uvm_sequencer #(a_seq_item) A2;
+    uvm_sequencer #(b_seq_item) B;
+    uvm_sequencer #(c_seq_item) C;
+    function new(string name = "top_vseq_base");
+    super.new(name);
+    endfunction
+  endclass: top_vseq_base
+
+  // uvm_test_top
+  class test_top_base extends uvm_test;
+    `uvm_component_utils(test_top_base)
+    env_top m_env;
+    function new(string name = "test_top_base", uvm_component parent = null);
+    super.new(name, parent);
+    endfunction
+    function void build_phase(uvm_phase phase);
+    m_env = env_top::type_id::create("m_env", this);
+    endfunction: build_phase
+    // Method to initialize the virtual sequence handles
+    function void init_vseq(top_vseq_base vseq);
+    vseq.A1 = m_env.m_env_1.m_agent_a.m_sequencer;
+    vseq.C = m_env.m_env_1.m_agent_c.m_sequencer;
+    vseq.A2 = m_env.m_env_2.m_agent_a.m_sequencer;
+    vseq.B = m_env.m_env_2.m_agent_b.m_sequencer;
+    endfunction: init_vseq
+  endclass: test_top_base
+
 9. virtual sequencer
-  it is a normal sequencer that contains handle to all the target sequencers.
+  it is a normal sequencer that it not connected to any driver and contains handle to all the target sequencers.
+  generally, virtual sequences are extended from a base class which does all the handle assignment to the virtual sequencer.
 10. ral block
